@@ -1,74 +1,124 @@
-/**
- * Add the file in your test suite to run tests on LambdaTest.
- * Import `test` object from this file in the tests.
- */
-const base = require('@playwright/test')
-const path = require('path')
-const { chromium } = require('playwright')
-const cp = require('child_process');
-const playwrightClientVersion = cp.execSync('npx playwright --version').toString().trim().split(' ')[1];
+import json
+import os
+import urllib
+import subprocess
+import playwright.sync_api
+import pytest
+from playwright.sync_api import sync_playwright
+from concurrent.futures import ThreadPoolExecutor
 
-// LambdaTest capabilities
-const capabilities = {
-  'browserName': 'Chrome', // Browsers allowed: `Chrome`, `MicrosoftEdge`, `pw-chromium`, `pw-firefox` and `pw-webkit`
-  'browserVersion': 'latest',
-  'LT:Options': {
-    'platform': 'Windows 10',
-    'build': 'Playwright Anubha',
-    'name': 'Playwright Test',
-    'user': 'anubhas',
-    'accessKey': 'JvGShZ2Bm8RdgmGFbbx4ZtbOb6DeQ8nqSvtHDZdDY7PzqaZMTq',
-    'network': true,
-    'video': true,
-    'console': true,
-    'tunnel': false, // Add tunnel configuration if testing locally hosted webpage
-    'tunnelName': '', // Optional
-    'geoLocation': '', 
-    'smartUIProjectName': 'TestMask',
-    'smartUIBaseline': false,
-    'smartUIBuildName':"Mask1",// country code can be fetched from https://www.lambdatest.com/capabilities-generator/
-    'playwrightClientVersion': playwrightClientVersion
-  }
-}
-
-// Patching the capabilities dynamically according to the project name.
-const modifyCapabilities = (configName, testName) => {
-  let config = configName.split('@lambdatest')[0]
-  let [browserName, browserVersion, platform] = config.split(':')
-  capabilities.browserName = browserName ? browserName : capabilities.browserName
-  capabilities.browserVersion = browserVersion ? browserVersion : capabilities.browserVersion
-  capabilities['LT:Options']['platform'] = platform ? platform : capabilities['LT:Options']['platform']
-  capabilities['LT:Options']['name'] = testName
-}
-
-exports.test = base.test.extend({
-  page: async ({ page, playwright }, use, testInfo) => {
-    // Configure LambdaTest platform for cross-browser testing
-    let fileName = testInfo.file.split(path.sep).pop()
-    if (testInfo.project.name.match(/lambdatest/)) {
-      modifyCapabilities(testInfo.project.name, `${testInfo.title} - ${fileName}`)
-
-      const browser = await chromium.connect({
-        wsEndpoint: `wss://cdp.lambdatest.com/playwright?capabilities=${encodeURIComponent(JSON.stringify(capabilities))}`
-      })
-
-      const ltPage = await browser.newPage(testInfo.project.use)
-      await use(ltPage)
-
-      const testStatus = {
-        action: 'setTestStatus',
-        arguments: {
-          status: testInfo.status,
-          remark: testInfo.error?.stack || testInfo.error?.message,
+# Browsers allowed: `Chrome`, `MicrosoftEdge`, `pw-chromium`, `pw-firefox` and `pw-webkit`
+capabilities = [
+    {
+        'browserName': 'pw-firefox',
+        'browserVersion': 'latest',
+        'LT:Options': {
+            'platform': 'Windows 10',
+            'build': 'Playwright With Parallel Build',
+            'name': 'Playwright Sample Test on Windows 10 - Firefox',
+            'user': 'dharamraj.sa',
+            'accessKey': 'Kg9gzgVYHGEzdJB521dCBIit9tOASggL3KhMSMm27fBhIvxcpN',
+            'network': True,
+            'video': True,
+            'console': True
         }
-      }
-      await ltPage.evaluate(() => {},
-        `lambdatest_action: ${JSON.stringify(testStatus)}`)
-      await ltPage.close()
-      await browser.close()
-    } else {
-      // Run tests in local in case of local config provided
-      await use(page)
+    },
+    {
+        'browserName': 'MicrosoftEdge',
+        'browserVersion': 'latest',
+        'LT:Options': {
+            'platform': 'MacOS Ventura',
+            'build': 'Playwright With Parallel Build',
+            'name': 'Playwright Sample Test on Windows 8 - MicrosoftEdge',
+            'user': 'dharamraj.sa',
+            'accessKey': 'Kg9gzgVYHGEzdJB521dCBIit9tOASggL3KhMSMm27fBhIvxcpN',
+            'network': True,
+            'video': True,
+            'console': True
+        }
+    },
+    {
+        'browserName': 'Chrome',
+        'browserVersion': 'latest',
+        'LT:Options': {
+            'platform': 'Windows 10',
+            'build': 'Playwright With Parallel Build',
+            'name': 'Playwright Sample Test on Windows10 - Chrome',
+            'user': 'dharamraj.sa',
+            'accessKey': 'Kg9gzgVYHGEzdJB521dCBIit9tOASggL3KhMSMm27fBhIvxcpN',
+            'network': True,
+            'video': True,
+            'console': True
+        }
+    },
+    {
+        'browserName': 'Chrome',
+        'browserVersion': 'latest',
+        'LT:Options': {
+            'platform': 'MacOS Big sur',
+            'build': 'Playwright With Parallel Build',
+            'name': 'Playwright Sample Test on MacOS Big sur - Chrome',
+            'user': 'dharamraj.sa',
+            'accessKey': 'Kg9gzgVYHGEzdJB521dCBIit9tOASggL3KhMSMm27fBhIvxcpN',
+            'network': True,
+            'video': True,
+            'console': True
+        }
     }
-  }
-})
+]
+
+
+@pytest.mark.parametrize("capability", capabilities)
+def test_samplerun(capability):
+    playwrightVersion = str(subprocess.getoutput(
+        'playwright --version')).strip().split(" ")[1]
+    capability['LT:Options']['playwrightClientVersion'] = playwrightVersion
+    lt_cdp_url = 'wss://cdp.lambdatest.com/playwright?capabilities=' + \
+        urllib.parse.quote(json.dumps(capability))
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.connect(lt_cdp_url)
+        page = browser.new_page()
+        try:
+            page.goto("https://www.bing.com/")
+            page.wait_for_timeout(3000)
+            page.fill('[id="sb_form_q"]', 'LambdaTest')
+            page.wait_for_timeout(1000)
+            page.keyboard.press("Enter")
+            page.wait_for_timeout(1000)
+            page.wait_for_selector('[class=" b_active"]')
+
+            title = page.title()
+            print("Title:: ", title)
+
+            if "LambdaTest" in title:
+                set_test_status(page, "passed", "Title matched")
+            else:
+                set_test_status(page, "failed", "Title did not match")
+
+            # get test details at runtime using lambdatest hook
+            test_details = get_test_details(page=page)
+            print("Test Details response - ", json.loads(test_details))
+        except Exception as err:
+            print("Error:: ", err)
+            set_test_status(page, "failed", str(err))
+
+        browser.close()
+
+
+def get_test_details(page):
+    return page.evaluate("_ => {}", "lambdatest_action: {\"action\": \"getTestDetails\"}")
+
+
+def set_test_status(page, status, remark):
+    page.evaluate("_ => {}",
+                  "lambdatest_action: {\"action\": \"setTestStatus\", \"arguments\": {\"status\":\"" + status + "\", \"remark\": \"" + remark + "\"}}")
+
+
+def run_tests_in_parallel():
+    with ThreadPoolExecutor(max_workers=len(capabilities)) as executor:
+        executor.map(test_samplerun, capabilities)
+
+
+# Entry point to run the tests
+if __name__ == '__main__':
+    run_tests_in_parallel()
